@@ -47,8 +47,8 @@
 
 %%
 
-dx = 0.01;
-dz = 0.005;
+dx = 2;
+dz = 1;
 
 z0 = 0;
 zend = 100;
@@ -62,27 +62,27 @@ x = x0:dx:xend;
 Nz = length(z);
 Nx = length(x);
 
-tic
+tStart = tic;
 [U_coarse] = wavefunc(dx,dz,xend,zend);
 % figure
 % surf(abs(U_coarse))
 % shading interp
 toc
-drawnow
-tic
+fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
+tStart = tic;
 [U_fine] = wavefunc(dx/2,dz/2,xend,zend);
 % figure
 % surf(abs(U_fine))
 % shading interp
 toc
-drawnow
-tic
+fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
+tStart = tic;
 [U_finest] = wavefunc(dx/4,dz/4,xend,zend);
 % figure
 % surf(abs(U_finest))
 % shading interp
 toc
-drawnow
+fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
 tic
 
 U_coarse_interp = U_fine(1:2:end, 1:2:end);  % Take every second point
@@ -96,6 +96,10 @@ max_e_2 = (max(max(abs(U_fine - U_fine_interp))));
 order = log(error_1 / error_2) / log(2);
 disp(['Computed order of accuracy: ', num2str(order)]);
 toc
+
+save('U_coarse.mat', 'U_coarse');
+save('U_fine.mat', 'U_fine');
+save('U_finest.mat', 'U_finest');
 
 
 %%
