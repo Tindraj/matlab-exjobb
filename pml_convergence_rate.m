@@ -47,8 +47,8 @@
 
 %%
 
-dx = 0.5;
-dz = 0.5;
+dx = 0.1;
+dz = 0.1;
 
 z0 = 0;
 zend = 100;
@@ -61,7 +61,7 @@ x = x0:dx:xend;
 
 Nz = length(z);
 Nx = length(x);
-
+tic
 %tStart = tic;
 [U_coarse] = wavefunc(dx,dz,xend,zend);
 % figure
@@ -84,6 +84,7 @@ Nx = length(x);
 %toc
 %fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
 %tic
+toc
 
 U_coarse_interp = U_fine(1:2:end, 1:2:end);  % Take every second point
 error_1 =  norm(U_coarse - U_coarse_interp)/sqrt(Nx*Nz);
