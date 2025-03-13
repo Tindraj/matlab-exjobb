@@ -47,11 +47,27 @@
 
 %%
 
-dx = 0.1;
-dz = 0.1;
+% Nyqvist criterion
+lambda = 0.3;
+alpha = atan(50/250);
+deltaz = lambda/(4*sin(alpha));
+deltax = lambda/(8*sin(0.5*alpha)^2);
+
+
+
+dx = 0.125;
+dz = 0.125; 
+
+
+fprintf('_________________________________________\n');
+fprintf('dx = %d\n', dx);
+fprintf('dz = %d\n', dz);
 
 z0 = 0;
-zend = 100;
+zend = 120;
+
+d = 20;     % PML thickness
+z1 = zend-d;
 
 x0 = 0;
 xend = 10000;
@@ -61,47 +77,47 @@ x = x0:dx:xend;
 
 Nz = length(z);
 Nx = length(x);
-tic
-%tStart = tic;
-[U_coarse] = wavefunc(dx,dz,xend,zend);
+
+tStart = tic;
+[U_coarse] = wavefunc(dx,dz,xend,zend,d);
 % figure
-% surf(abs(U_coarse))
+% surf(x,z,abs(U_coarse))
 % shading interp
-%toc
-%fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
-%tStart = tic;
-[U_fine] = wavefunc(dx/2,dz/2,xend,zend);
+fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
+
+tStart = tic;
+[U_fine] = wavefunc(dx/2,dz/2,xend,zend,d);
 % figure
 % surf(abs(U_fine))
 % shading interp
-%toc
-%fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
-%tStart = tic;
-[U_finest] = wavefunc(dx/4,dz/4,xend,zend);
+fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
+
+tStart = tic;
+[U_finest] = wavefunc(dx/4,dz/4,xend,zend,d);
 % figure
 % surf(abs(U_finest))
 % shading interp
-%toc
-%fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
-%tic
-toc
+fprintf('Time elapsed: %.6f seconds\n', toc(tStart));
 
+tic
 U_coarse_interp = U_fine(1:2:end, 1:2:end);  % Take every second point
-error_1 =  norm(U_coarse - U_coarse_interp)/sqrt(Nx*Nz);
+error_1 =  norm(U_coarse(1:round(z1/dz),:) - U_coarse_interp(1:round(z1/dz),:))/sqrt(Nx*Nz*z1/zend);
 max_e_1 = (max(max(abs(U_coarse - U_coarse_interp))));
 
 U_fine_interp = U_finest(1:2:end, 1:2:end);
-error_2 =  norm(U_fine - U_fine_interp)/sqrt(2*Nx*2*Nz);
+error_2 =  norm(U_fine(1:round(z1/(dz/2)),:) - U_fine_interp(1:round(z1/(dz/2)),:))/sqrt(2*Nx*2*Nz*z1/zend);
 max_e_2 = (max(max(abs(U_fine - U_fine_interp))));
+
+fprintf('error_1 = %d\n', error_1);
+fprintf('error_2 = %d\n', error_2);
 
 order = log(error_1 / error_2) / log(2);
 disp(['Computed order of accuracy: ', num2str(order)]);
-%toc
 
-save('U_coarse.mat', 'U_coarse');
-save('U_fine.mat', 'U_fine');
-save('U_finest.mat', 'U_finest');
-
+% save('U_coarse.mat', 'U_coarse');
+% save('U_fine.mat', 'U_fine');
+% save('U_finest.mat', 'U_finest');
+toc
 
 %%
 % Plot errors
@@ -119,33 +135,35 @@ save('U_finest.mat', 'U_finest');
 %% 
 
 
-function [U] = wavefunc(dx, dz, xend, zend)
+function [U] = wavefunc(dx, dz, xend, zend, d) % d=PML-thickness
     
     z = 0:dz:zend;
     x = 0:dx:xend;
 
     Nz = length(z);
-    Nx = length(z);
+    Nx = length(x);
     
-    lambda = 0.1;    % Radar wavelength
+    lambda = 0.3;    % Radar wavelength
     wk = 2 * pi / lambda; % Wave number
+    n = 1.000293;        % refractive index air
+
+    c = wk^2*(n^2-1);    % Constant n0 
     ra = 6360000;    % Radius of the earth
     
     x = linspace(0, xend, Nx);
     z = linspace(0, zend, Nz);
     
     % Initial condition
-    beta = 3 * pi / 180;
+    beta = 8 * pi / 180;
     theta0 = 0;
-    ha = 31;
+    ha = 30;
     k = wk;
     u_fs = @(z) (k * beta) / (2 * sqrt(2 * pi * log(2))) .* exp(-1i * k * theta0 * z) .* exp(-(beta^2 / (8 * log(2))) * k^2 * (z - ha).^2);
     U = zeros(Nz, Nx);
     U(:, 1) = u_fs(z) - u_fs(-z);
     
     % Absorption function sigma(z)                                      
-    d = 40;
-    sigma_max = 20;
+    sigma_max = 100;
     z1 = zend - d;
 
 % Absorption function sigma(z)
@@ -188,17 +206,19 @@ end
     n_F = 1 + N_F / 1e6;
     m_F = sqrt(n_F.^2 + 2 * (F_z) / ra);
     n_z = (wk^2 * (m_F.^2 - 1));
+
+    %n_z = ones(Nz,1)*c;
     
-    % Construct matrices for Crank-Nicolson
+    % Finite difference matrix with PML
     F = zeros(Nz, Nz);
-   F = zeros(Nz, Nz);
+    F = zeros(Nz, Nz);
 for j = 2:Nz-1
     factor = 1 / (1 + 1i * sigma(j));
     F(j, j-1) = factor * 1/dz^2 + factor^2*1i*sigma_prime(j)/(2*dz);
     F(j, j)   = factor * -2/dz^2;
     F(j, j+1) = factor * 1/dz^2 - factor^2*1i*sigma_prime(j)/(2*dz);
 end
-    
+    % Construct matrices for Crank-Nicolson
     I = eye(Nz);
     A = sparse(I - (F + diag(n_z)) * dx * 1i / (2 * 2 * wk));
     B = sparse(I + (F + diag(n_z)) * dx * 1i / (2 * 2 * wk));
