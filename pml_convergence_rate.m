@@ -47,16 +47,10 @@
 
 %%
 
-% Nyqvist criterion
-lambda = 0.3;
-alpha = atan(50/250);
-deltaz = lambda/(4*sin(alpha));
-deltax = lambda/(8*sin(0.5*alpha)^2);
+tic
 
-
-
-dx = 0.125;
-dz = 0.125; 
+dx = 0.25;
+dz = 0.25; 
 
 
 fprintf('_________________________________________\n');
@@ -117,7 +111,7 @@ disp(['Computed order of accuracy: ', num2str(order)]);
 % save('U_coarse.mat', 'U_coarse');
 % save('U_fine.mat', 'U_fine');
 % save('U_finest.mat', 'U_finest');
-%toc
+toc
 
 %%
 % Plot errors
@@ -210,7 +204,6 @@ end
     %n_z = ones(Nz,1)*c;
     
     % Finite difference matrix with PML
-    F = zeros(Nz, Nz);
     F = zeros(Nz, Nz);
 for j = 2:Nz-1
     factor = 1 / (1 + 1i * sigma(j));
